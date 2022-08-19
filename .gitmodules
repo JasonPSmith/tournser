@@ -1,0 +1,3 @@
+[submodule "pytournser/pybind11"]
+	path = pytournser/pybind11
+	url = https://github.com/pybind/pybind11
