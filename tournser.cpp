@@ -946,6 +946,40 @@ const filtration_entry_t priority_queue_t<Container, Comparator>::dummy(filtrati
 //-------------------------------------------------------------------------//
 //BEGIN read_graph
 
+void build_count_and_filter(delta_complex_t& complex, const char* filter, bool dist){
+	complex.initialise_filtration(filter);
+	complex.build_tournaplex(filter);
+
+    print_progress(0,3);
+
+	std::cout << "Simplex Count = ";
+    for(int i = 0; i < complex.cells.size(); i++){
+        std::cout << complex.cells[i].size() << " ";
+    }
+    std::cout << std::endl;
+
+    //Compute and print the distribution of directionality
+    if(dist){
+        std::vector<std::unordered_map<entry_t,size_t>> direct_dist;
+        std::cout << "Filtration Distribution (value,count): " << std::endl;
+        for(int i = 0; i < complex.cells.size(); i++){
+            direct_dist.push_back( std::unordered_map<entry_t,size_t>() );
+            for(int j = 0; j < complex.cells[i].size(); j++){
+                auto it = direct_dist[i].find(complex.cells[i][j].filtration());
+                if(it != direct_dist[i].end()){ it->second = it->second+1; }
+                else{ direct_dist[i].insert ( std::pair<entry_t,size_t>(complex.cells[i][j].filtration(),1) ); }
+            }
+            std::cout << "dim " << i << " : ";
+            for(std::unordered_map<entry_t,size_t>::iterator it = direct_dist[i].begin();
+                                                            it != direct_dist[i].end(); ++it) {
+                std::cout << "("<< it->first <<","<< it->second <<") ";
+            }
+            std::cout << std::endl;
+        }
+    }
+    std::cout << std::endl;
+}
+
 delta_complex_t read_graph(const std::string filename, const char* filter, bool dist){
 	std::ifstream infile;
     infile.open(filename);
@@ -978,39 +1012,33 @@ delta_complex_t read_graph(const std::string filename, const char* filter, bool 
             prev2 = faces[1];
         }
     }
-	complex.initialise_filtration(filter);
-	complex.build_tournaplex(filter);
-
-    print_progress(0,3);
-	std::cout << "Simplex Count = ";
-    for(int i = 0; i < complex.cells.size(); i++){
-        std::cout << complex.cells[i].size() << " ";
-    }
-    std::cout << std::endl;
-
-    //Compute and print the distribution of directionality
-    if(dist){
-        std::vector<std::unordered_map<entry_t,size_t>> direct_dist;
-        std::cout << "Filtration Distribution (value,count): " << std::endl;
-        for(int i = 0; i < complex.cells.size(); i++){
-            direct_dist.push_back( std::unordered_map<entry_t,size_t>() );
-            for(int j = 0; j < complex.cells[i].size(); j++){
-                auto it = direct_dist[i].find(complex.cells[i][j].filtration());
-                if(it != direct_dist[i].end()){ it->second = it->second+1; }
-                else{ direct_dist[i].insert ( std::pair<entry_t,size_t>(complex.cells[i][j].filtration(),1) ); }
-            }
-            std::cout << "dim " << i << " : ";
-            for(std::unordered_map<entry_t,size_t>::iterator it = direct_dist[i].begin();
-                                                            it != direct_dist[i].end(); ++it) {
-                std::cout << "("<< it->first <<","<< it->second <<") ";
-            }
-            std::cout << std::endl;
-        }
-    }
-    std::cout << std::endl;
+	build_count_and_filter(complex, filter, dist);
 
     return complex;
 
+}
+
+delta_complex_t read_graph(std::vector<int>& vertices, std::vector<std::vector<value_t>>& edges, int num_vertices, const char* filter, bool dist){
+	delta_complex_t complex = delta_complex_t(vertices);
+	complex.add_dimension();
+
+    print_progress(1,0);
+    int prev1 = std::numeric_limits<int>::min();
+    int prev2 = std::numeric_limits<int>::min();
+    for (auto i : edges){
+ 		value_t val = 0;
+		if(i.size() == 3) val = i[2];
+        if(i[0] <= prev1 && i[1] <= prev2){
+            std::cout << "Error: edges are not in lexicographic order or added same edge twice." << std::endl;
+            exit(-1);
+        }
+		complex.add_edge(i[0],i[1],val);
+        prev1 = i[0];
+        prev2 = i[1];
+    }
+    build_count_and_filter(complex, filter, dist);
+
+    return complex;
 }
 
 //END read_graph
@@ -1023,20 +1051,25 @@ delta_complex_t read_graph(const std::string filename, const char* filter, bool 
 class tournser {
 	delta_complex_t* complex;
 	std::ofstream outfile;
+	std::ostringstream* ss;
 	index_t n, dim_max;
 	mutable std::vector<filtration_entry_t> coface_entries;
 	size_t max_entries;
 	std::vector<size_t> skipped_entries;
-	std::vector<size_t> infinite_pairs;
+	std::vector<std::vector<std::pair<value_t,value_t>>> finite_pairs;
+	std::vector<std::vector<value_t>> infinite_pairs;
+	bool python;
 
 public:
-	tournser(	delta_complex_t* _complex, char* _outname, size_t _max_entries)
+	tournser(	delta_complex_t* _complex, char* _outname, size_t _max_entries, bool _python)
 	    : complex(_complex), n(complex->number_of_cells(0)),
 	      dim_max(complex->top_dimension()),
-		  max_entries(_max_entries){
-				outfile = std::ofstream(_outname);
+		  max_entries(_max_entries),
+		  python(_python){
+				if(!python) {outfile = std::ofstream(_outname);}	  	  
 				skipped_entries.assign(dim_max+1,0);
-				infinite_pairs.assign(dim_max+1,0);
+				infinite_pairs.resize(dim_max+1);
+				finite_pairs.resize(dim_max+1);
 			  }
 
 	value_t compute_filtration(const index_t index, index_t dim) const {
@@ -1055,14 +1088,18 @@ public:
 		std::sort(edges.rbegin(), edges.rend(),
 		          greater_filtration_or_smaller_index<filtration_index_t>());
 
-		outfile << "# persistence intervals in dim 0:" << std::endl;
+		if(!python) { outfile << "# persistence intervals in dim 0:" << std::endl; }
 
 		for (auto e : edges) {
 			value_t birth = dset.link(complex->get(1,get_index(e))->vertices[0], complex->get(1,get_index(e))->vertices[1]);
 			if (birth != -1) {
 				if (get_filtration(e) > birth) {
-					outfile << " [" << birth << ", " << get_filtration(e) << ")" << std::endl;
-					outfile.flush();
+					if(!python){
+						outfile << " [" << birth << ", " << get_filtration(e) << ")" << std::endl;
+					    outfile.flush();
+					}
+					else { finite_pairs[0].push_back(std::make_pair(birth,get_filtration(e))); }
+					
 				}
 			} else {
 				columns_to_reduce.push_back(e);
@@ -1072,9 +1109,11 @@ public:
 
 		for (index_t i = 0; i < n; ++i)
 			if (dset.find(i) == i){
-				outfile << " [" << dset.filter(i) << ", )" << std::endl;
-				outfile.flush();
-				infinite_pairs[0]++;
+				if(!python){
+					outfile << " [" << dset.filter(i) << ", )" << std::endl;
+					outfile.flush();
+				}
+				infinite_pairs[0].push_back(dset.filter(i));
 			}
 	}
 
@@ -1086,12 +1125,13 @@ public:
 	void sort_columns(std::vector<filtration_index_t>& columns_to_reduce, index_t dimension) {
 		std::sort(columns_to_reduce.begin(), columns_to_reduce.end(),
 			greater_filtration_or_better_pivot_or_smaller_index(complex,dimension));
-}
+    }
 
 	void compute_pairs(std::vector<filtration_index_t>& columns_to_reduce,
 	                   pivot_column_index_t& pivot_column_index, index_t dim) {
 
-		outfile << "# persistence intervals in dim " << dim << ":" << std::endl;
+		if(!python) { outfile << "# persistence intervals in dim " << dim << ":" << std::endl; }
+
         print_progress(dim,1);
         compressed_sparse_matrix<filtration_entry_t> reduction_coefficients;
 
@@ -1141,8 +1181,11 @@ public:
 
 						value_t death = get_filtration(pivot);
 						if (death > filtration) {
-							outfile << " [" << filtration << ", " << death << ")" << std::endl;
-							outfile.flush();
+							if(!python) { 
+								outfile << " [" << filtration << ", " << death << ")" << std::endl;
+								outfile.flush();
+							}
+							else { finite_pairs[dim].push_back(std::make_pair(filtration,death)); }
 						}
 
 						pivot_column_index[get_index(pivot)] =  index_column_to_reduce;
@@ -1155,13 +1198,17 @@ public:
 						break;
 					}
 				} else if(get_index(pivot) == -1) {
-					outfile << " [" << filtration << ", )" << std::endl << std::flush;
-					outfile.flush();
-					infinite_pairs[dim]++;
+					if(!python){
+						outfile << " [" << filtration << ", )" << std::endl << std::flush;
+						outfile.flush();
+					}
+					infinite_pairs[dim].push_back(filtration);
 					break;
 				}else {
-					outfile << "[?" << filtration << ", " << ", ?)" << std::endl;
-					outfile.flush();
+					if(!python){
+						outfile << "[?" << filtration << ", " << ", ?)" << std::endl;
+						outfile.flush();
+					}
 					skipped_entries[dim]++;
 					break;
 				}
@@ -1176,23 +1223,32 @@ public:
 
 	std::vector<filtration_index_t> get_edges();
 
+	std::vector<value_t> num_infinite_pairs(){
+		std::vector<value_t> out;
+		for(auto i : infinite_pairs) out.push_back(i.size());
+		return out;
+	}
+
 	void print_summary(){
-		outfile << std::endl;
-		outfile << "# Betti Numbers:" << std::endl;
-		for(index_t i = 0; i <= dim_max; i++){
-			outfile << "#        dim H_" << i << " = " << infinite_pairs[i];
-			if( skipped_entries[i] > 0){
-				outfile << " : (" << skipped_entries[i] << " entries skipped)";
+		if(!python){
+			std::vector<value_t> inf_pairs = num_infinite_pairs();
+			outfile << std::endl;
+			outfile << "# Betti Numbers:" << std::endl;
+			for(index_t i = 0; i <= dim_max; i++){
+				outfile << "#        dim H_" << i << " = " << inf_pairs[i];
+				if( skipped_entries[i] > 0){
+					outfile << " : (" << skipped_entries[i] << " entries skipped)";
+				}
+				outfile << std::endl;
 			}
 			outfile << std::endl;
+			outfile << "# Cell Counts:" << std::endl;
+			for(index_t i = 0; i <= dim_max; i++){
+				outfile << "#        dim C_" << i << " = " << complex->number_of_cells(i) << std::endl;
+			}
+			outfile.flush();
+			outfile.close();
 		}
-		outfile << std::endl;
-		outfile << "# Cell Counts:" << std::endl;
-		for(index_t i = 0; i <= dim_max; i++){
-			outfile << "#        dim C_" << i << " = " << complex->number_of_cells(i) << std::endl;
-		}
-		outfile.flush();
-		outfile.close();
 	}
 
 	void compute_barcodes() {
@@ -1218,6 +1274,8 @@ public:
 		}
 		print_summary();
 	}
+
+
 };
 
 template <typename Column, typename Iterator>
@@ -1338,7 +1396,7 @@ int main(int argc, char** argv) {
 
     //create tournser object and compute persistent homology
     if (!count_only){
-        tournser(&complex,outname,max_entries).compute_barcodes();
+        tournser(&complex,outname,max_entries,false).compute_barcodes();
     }
 }
 
