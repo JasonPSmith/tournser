@@ -8,7 +8,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pytournser, m) {
+PYBIND11_MODULE(pytourn, m) {
 
   m.doc() = "Python interface for tournser";
 
@@ -21,16 +21,8 @@ PYBIND11_MODULE(pytournser, m) {
     std::cout.rdbuf(nullptr);
 
     std::vector<size_t> cell_counts;
-    delta_complex_t complex
-
-    bool count_only = false;
-    if (!count_only){
-        std::ifstream f(outname);
-        if (f.good()){
-            std::cerr << "The output file already exists, aborting." << std::endl;
-            exit(-1);
-        } else { std::cout << "Printing output to : " << outname << std::endl; }
-    }
+    py::dict output;
+    delta_complex_t complex = delta_complex_t();
 
     //initialise approximate functionality
     size_t max_entries = std::numeric_limits<size_t>::max();
@@ -50,19 +42,19 @@ PYBIND11_MODULE(pytournser, m) {
         cell_counts.push_back(complex.cells[i].size());
     }
     
-    // Re-enable again cout
-    std::cout.rdbuf(cout_buff);
-
-    py::dict output;
     output["cell_counts"] = cell_counts;
 
     //create tournser object and compute persistent homology
     if (!count_only){
-        std::ostringstream ss;
-        tournser(&complex,outname,max_entries,true,ss).compute_barcodes();
-        output["homology"] = ss.str();
+        tournser thetournser = tournser(&complex,filename,max_entries,true);
+        thetournser.compute_barcodes();
+        output["finite_pairs"] = thetournser.finite_pairs;
+        output["infinite_pairs"] = thetournser.infinite_pairs;
+        output["bettis"] = thetournser.num_infinite_pairs();
     }
     
+ // Re-enable again cout
+    std::cout.rdbuf(cout_buff);
 
     return output;
   });

@@ -173,6 +173,22 @@ Using the option \textbf{-{}-print print\_address} will print the whole tournapl
 	\draw[->] (1) -- (3);
    \end{tikzpicture}$$
   and this simplex has three faces in its boundary and two in its coboundary, has filtration value $4$ and is the $5$'th face of dimension 2
+\pagebreak
+\subsection{pytournser}
+Also included here is a python wrapper for tournser. To use \textit{pytournser}, first ensure it is installed (see README), then open python and load the package with:
+\begin{verbatim}from pytournser import *\end{verbatim}
+Then simply call:
+\begin{verbatim}X=tournser(V,M)\end{verbatim}
+Where $M$ is the adjacency matrix of the graph to consider as a numpy array (with entries the filtration values of the edges, which cannot be $0$), and V is a vector of the vertex filtration values. The optional entries are:
+\begin{verbatim}tournser(vertex_values, adjacency_matrix, filtration='vertexMax', approx=False,\end{verbatim} 
+\begin{verbatim}approx_val=100000, count_only=False)\end{verbatim}
+where filtration, approx\_val and count\_only are the same as the C++ version of tournser, and approx indicates whether or not to use the approx value.
+
+Also available is tournser\_file and tournser\_edge which have the arguments:
+\begin{verbatim}tournser_file(in_file, filtration='vertexMax', approx=False, approx_val=100000, count_only=False)\end{verbatim}
+\begin{verbatim}tournser_edges(vertex_values, edge_list, filtration='vertexMax', approx=False,\end{verbatim}
+\begin{verbatim}approx_val=100000, count_only=False)\end{verbatim}
+where edge list is a $m\times2$ or $m\times 3$ numpy array, where the third entry of each row is the optional filtration value. And in\_file is the address of a .trn file.
 
 \vfill
 \end{document}

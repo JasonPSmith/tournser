@@ -67,5 +67,6 @@ setup(
     description='A pybind11 wrapper for tournser',
     ext_modules=[CMakeExtension('pytournser')],
     cmdclass=dict(build_ext=CMakeBuild),
+    packages=["pytournser"],
     zip_safe=False,
 )

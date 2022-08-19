@@ -343,6 +343,7 @@ public:
 	//creates a delta complex with with |vertices| number of vertices
 	//and each vertex i has filtration value given by vertices[i]
 	//also create a clique of size one for each vertex
+	delta_complex_t(){};
 	delta_complex_t(std::vector<int> vertices){
 		add_dimension();
 		for( int i = 0; i < vertices.size(); i++ ){
@@ -1018,7 +1019,7 @@ delta_complex_t read_graph(const std::string filename, const char* filter, bool 
 
 }
 
-delta_complex_t read_graph(std::vector<int>& vertices, std::vector<std::vector<value_t>>& edges, int num_vertices, const char* filter, bool dist){
+delta_complex_t read_graph(std::vector<int>& vertices, std::vector<std::vector<value_t>>& edges, const char* filter, bool dist){
 	delta_complex_t complex = delta_complex_t(vertices);
 	complex.add_dimension();
 
@@ -1056,11 +1057,12 @@ class tournser {
 	mutable std::vector<filtration_entry_t> coface_entries;
 	size_t max_entries;
 	std::vector<size_t> skipped_entries;
-	std::vector<std::vector<std::pair<value_t,value_t>>> finite_pairs;
-	std::vector<std::vector<value_t>> infinite_pairs;
 	bool python;
 
 public:
+    std::vector<std::vector<std::pair<value_t,value_t>>> finite_pairs;
+	std::vector<std::vector<value_t>> infinite_pairs;
+
 	tournser(	delta_complex_t* _complex, char* _outname, size_t _max_entries, bool _python)
 	    : complex(_complex), n(complex->number_of_cells(0)),
 	      dim_max(complex->top_dimension()),

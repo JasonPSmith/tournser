@@ -1,15 +1,15 @@
 import numpy as np
-from pytournser import run_tournser
+from pytourn import run_tournser
 
 def tournser_edges(vertex_values, edge_list, filtration='vertexMax', approx=False, approx_val=100000, count_only=False):
 
-    return run_tournser(num_vertices, edge_list, filtration, approx, approx_val, count_only, False, 'null')
+    return run_tournser(vertex_values, edge_list, filtration, approx, approx_val, count_only, False, 'null')
 
 
 
 def tournser(vertex_values, adjacency_matrix, filtration='vertexMax', approx=False, approx_val=100000, count_only=False):
 
-    return tournser_edges(vertex_values, [[i[0],i[1],adjacency_matrix[i[0],i[1]]] for i in np.nonzero(adjacency_matrix)], filtration, approx, approx_val, count_only)
+    return tournser_edges(vertex_values, [[i[0],i[1],adjacency_matrix[i[0],i[1]]] for i in np.transpose(np.nonzero(adjacency_matrix))], filtration, approx, approx_val, count_only)
 
 
 
