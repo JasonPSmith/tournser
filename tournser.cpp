@@ -1,7 +1,7 @@
 //Run with:
 //./tournser in_file out_file
 //plus any of the following optional inputs:
-//--filtration     followed by one of: relative, absolute, vertexMax, vertexSum, natural, natural-max
+//--filtration     followed by one of: local, global, 3cycle, vertexMax, vertexSum, natural, natural-max
 //--approximate    followed by an positive integer, skips any bars taking to long to compute, 100000 is a good value
 //--print          followed by address of file to print into
 //--print_dist     followed by true to print the distribution of filtrations
