@@ -695,6 +695,14 @@ void delta_complex_cell_t::assign_filtration(const char* filter,delta_complex_t*
 			}
 			filt = m;
 		}
+	}else if(strcmp(filter,"edgeMax") == 0){
+		if(dimension() > 1){
+			value_t m = complex->cells[1][vertices[0]].filtration();
+			for(int i = 1; i < vertices.size(); i++){
+				m = std::max(m,complex->cells[1][vertices[i]].filtration());
+			}
+			filt = m;
+		}
 	}else if(strcmp(filter,"vertexSum") == 0){
 		if(dimension() > 0){
 			value_t m = complex->cells[0][vertices[0]].filtration();
@@ -1068,7 +1076,7 @@ public:
 	      dim_max(complex->top_dimension()),
 		  max_entries(_max_entries),
 		  python(_python){
-				if(!python) {outfile = std::ofstream(_outname);}	  	  
+				if(!python) {outfile = std::ofstream(_outname);}
 				skipped_entries.assign(dim_max+1,0);
 				infinite_pairs.resize(dim_max+1);
 				finite_pairs.resize(dim_max+1);
@@ -1101,7 +1109,7 @@ public:
 					    outfile.flush();
 					}
 					else { finite_pairs[0].push_back(std::make_pair(birth,get_filtration(e))); }
-					
+
 				}
 			} else {
 				columns_to_reduce.push_back(e);
@@ -1183,7 +1191,7 @@ public:
 
 						value_t death = get_filtration(pivot);
 						if (death > filtration) {
-							if(!python) { 
+							if(!python) {
 								outfile << " [" << filtration << ", " << death << ")" << std::endl;
 								outfile.flush();
 							}
